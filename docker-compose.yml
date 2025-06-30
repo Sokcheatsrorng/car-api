@@ -1,0 +1,50 @@
+
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: car_selling_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cardb
+      POSTGRES_USER: caruser
+      POSTGRES_PASSWORD: carpass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - car_selling_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caruser -d cardb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Application
+  api:
+    build: .
+    container_name: car_selling_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://caruser:carpass@db:5432/cardb
+      SECRET_KEY: 8c3462d895f3a51eebfcce680f04d4a290a82eef8d54d6924a026189026169a9
+    ports:
+      - "8998:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - car_selling_network
+    # Remove or enable only if needed for live reload in development
+    # volumes:
+    #   - ./scripts:/app
+
+volumes:
+  postgres_data:
+
+networks:
+  car_selling_network:
+    driver: bridge
